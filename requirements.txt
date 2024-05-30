@@ -1,7 +1,7 @@
-pandas
-numpy
+pandas==2.2.1
+numpy==1.26.4
 seaborn
 matplotlib
 streamlit
-fcmeans
-scikit-learn
+fuzzy-c-means==1.7.2
+scikit-learn==1.4.1.post1
