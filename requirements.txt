@@ -1,4 +1,7 @@
-streamlit
-matplotlib
 pandas
 numpy
+seaborn
+matplotlib
+streamlit
+fcmeans
+scikit-learn
