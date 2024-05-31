@@ -70,11 +70,24 @@ def fuzzy_cmeans_clustering(data, n_clusters):
         "Gorontalo": 1
     }
     
+    # Mengelompokkan kota-kota yang sama ke dalam klaster yang sama
     for city, cluster_label in specific_cities.items():
         if city in data['Kota'].values:
             data.loc[data['Kota'] == city, 'Cluster'] = cluster_label
+            
+    # Menyimpan mapping klaster untuk setiap kota
+    city_cluster_mapping = data.groupby('Kota')['Cluster'].first().to_dict()
+    
+    # Mengaplikasikan mapping klaster ke seluruh data
+    data['Cluster'] = data['Kota'].map(city_cluster_mapping)
     
     return data
+
+# Fungsi untuk menampilkan tabel kota dan label klaster
+def show_city_clusters_table(data):
+    city_clusters = data[['Kota', 'Cluster']].drop_duplicates().sort_values('Kota').reset_index(drop=True)
+    st.write("Tabel Kota dan Label Cluster:")
+    st.dataframe(city_clusters)
 
 # Fungsi untuk memvisualisasikan hasil clustering
 def plot_clusters(data, feature1, feature2):
@@ -173,6 +186,9 @@ def main():
             st.write("Data setelah Clustering:")
             st.write(clustered_data)
 
+            # Menampilkan tabel kota dan label klaster
+            show_city_clusters_table(clustered_data)
+
             # Visualisasi hasil clustering
             plot_clusters(clustered_data, feature1, feature2)
 
@@ -213,6 +229,12 @@ def main():
                 "Kecepatan angin rata-rata (m/s)": "kecepatan angin rata-rata",
                 "Arah angin terbanyak (°)": "arah angin terbanyak"
             }
+
+            #for col, desc in columns.items():
+            #    if col in selected_features:
+            #        cluster_means = clustered_data.groupby('Cluster')[col].mean()
+            #        max_cluster = cluster_means.idxmax()
+            #        analyses.append(f"Cluster {max_cluster} memiliki {desc} yang paling tinggi dibandingkan cluster lainnya.\n")
 
             for col, desc in columns.items():
                 if col in selected_features:
