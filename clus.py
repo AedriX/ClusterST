@@ -27,7 +27,7 @@ def rename_columns(columns):
 
 def cluster_page():
     st.title("Halaman Analisis Cluster")
-    st.write("Ini adalah halaman untuk analisis cluster.")
+    st.write("Anda dapat melakukan proses clustering dengan mengunggah file Excel yang berisikan dataset yang ingin dilakukan clustering.")
     main()  # Panggil fungsi main() untuk menjalankan analisis cluster
 
 # Fungsi untuk melakukan clustering menggunakan Fuzzy C-Means

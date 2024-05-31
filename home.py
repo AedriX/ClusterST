@@ -8,9 +8,9 @@ def home_page():
 
     # Add title and welcome text
     st.title("Selamat Datang!")
-    st.write("Aplikasi ini memudahkan Anda dalam melakukan analisis cluster dengan mudah.")
+    st.write("Aplikasi ini memudahkan Anda dalam melakukan analisis cluster dengan mudah.\n\n Silahkan merujuk ke panel navigasi di bagian kiri layar Anda untuk berpindah ke halaman selanjutnya.")
 
-    st.write("Contoh Hasil Clustering Data Meteorologi Pulau Sulawesi:")
+    st.write("Contoh Hasil Clustering Data Meteorologi di Pulau Sulawesi:")
 
     # Create a grid of 4x4 images
     cols = st.columns(2)

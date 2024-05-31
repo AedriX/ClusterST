@@ -12,6 +12,7 @@ def about_page():
 
     ### Fitur Utama
     - **Unggah File Excel**: Pengguna dapat mengunggah file Excel yang berisi data meteorologi untuk dianalisis.
+    - **Template Excel**: Template file Excel disediakan untuk memudahkan pengguna dalam mempersiapkan data yang sesuai format.
     - **Preprocessing Data**: Data yang diunggah akan diproses, termasuk normalisasi dan penamaan ulang kolom sesuai deskripsi.
     - **Fuzzy C-Means Clustering**: Data akan dikelompokkan ke dalam beberapa klaster menggunakan algoritma Fuzzy C-Means.
     - **Visualisasi Klaster**: Hasil clustering akan divisualisasikan dalam bentuk scatter plot, serta grafik time-series berdasarkan rata-rata tahunan dan bulanan.
@@ -30,18 +31,17 @@ def about_page():
     - **Visualisasi**: Hasil clustering divisualisasikan untuk memudahkan analisis dan pemahaman pola data.
 
     ### Tentang Pengembang
-    Aplikasi ini dikembangkan untuk membantu analisis data meteorologi dengan pendekatan yang interaktif dan mudah digunakan. Jika Anda memiliki pertanyaan atau masukan, silakan hubungi kami melalui halaman kontak.
+    Aplikasi ini dikembangkan oleh Erwin Surya Effendy, mahasiswa Fakultas Teknologi Informasi Universitas Tarumanagara. Kelahiran tahun 2001 di Kota Bandar Lampung.
 
-    ### Sumber
+    ### Requirements
     - **Pustaka Python**: 
         - `pandas`
         - `numpy`
         - `seaborn`
         - `matplotlib`
         - `streamlit`
-        - `fcmeans`
+        - `fuzzy-c-means`
         - `scikit-learn`
-    - **Template Excel**: Template file Excel disediakan untuk memudahkan pengguna dalam mempersiapkan data yang sesuai format.
 
     Kami berharap aplikasi ini dapat bermanfaat untuk analisis data meteorologi Anda!
     """)
