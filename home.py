@@ -8,7 +8,7 @@ def home_page():
 
     # Add title and welcome text
     st.title("Selamat Datang!")
-    st.write("Aplikasi ini memudahkan Anda dalam melakukan analisis cluster dengan mudah.\n\n Silahkan merujuk ke panel navigasi di bagian kiri layar Anda untuk berpindah ke halaman selanjutnya.")
+    st.write("Aplikasi ini memudahkan Anda dalam melakukan analisis clustering data meteorologi dengan mudah.\n\n Silahkan merujuk ke panel navigasi di bagian kiri layar Anda untuk berpindah ke halaman selanjutnya.")
 
     st.write("Contoh Hasil Clustering Data Meteorologi di Pulau Sulawesi:")
 

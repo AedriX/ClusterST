@@ -8,6 +8,7 @@ import streamlit as st
 from fcmeans import FCM
 from sklearn.preprocessing import StandardScaler
 
+st.set_option('deprecation.showPyplotGlobalUse', False)
 
 # Fungsi untuk mengubah nama kolom sesuai dengan deskripsi
 def rename_columns(columns):
@@ -110,6 +111,27 @@ def plot_city_trends(data, feature):
     plt.tight_layout()
     st.pyplot(fig)
 
+def plot_monthly_trends(data, feature2):
+    st.write("Grafik Tren Bulanan:")
+    fig, ax = plt.subplots()
+
+    # Define all month names
+    months = list(calendar.month_name[1:])  # ['January', 'February', ..., 'December']
+
+    for cluster in data["Cluster"].unique():
+        cluster_data = data[data["Cluster"] == cluster]
+        # Calculate monthly means ensuring all months are included
+        monthly_means = cluster_data.groupby('Month')[feature2].mean().reindex(range(1, 13), fill_value=0).values
+        if len(monthly_means) == 12:  # Ensuring it has values for all 12 months
+            ax.plot(months, monthly_means, label=f"Cluster {cluster}")
+
+    ax.set_xlabel("Bulan")
+    ax.set_ylabel(feature2)
+    ax.set_title("Grafik dari Setiap Klaster dengan Rata-rata Bulanan")
+    ax.legend()
+    plt.xticks(rotation=32)
+    st.pyplot(fig)
+
 def main():
     st.title('Clustering Data Meteorologi dengan Fuzzy C-Means')
 
@@ -155,7 +177,7 @@ def main():
             plot_clusters(clustered_data, feature1, feature2)
 
             # Membuat grafik time-series dari setiap kluster dengan rata-rata tahunan
-            st.write("Grafik:")
+            st.write("Grafik Tren Tahunan:")
             fig, ax = plt.subplots()
             for cluster in data["Cluster"].unique():
                 cluster_data = data[data["Cluster"] == cluster]
@@ -171,19 +193,7 @@ def main():
             st.pyplot(fig)
 
             # Membuat grafik time-series dari setiap kluster dengan rata-rata bulanan
-            st.write("Grafik:")
-            fig, ax = plt.subplots()
-            for cluster in data["Cluster"].unique():
-                cluster_data = data[data["Cluster"] == cluster]
-                # Menggunakan rata-rata bulanan untuk setiap kluster
-                monthly_means = cluster_data.groupby('Month')[feature2].mean()
-                ax.plot(calendar.month_name[1:], monthly_means, label=f"Cluster {cluster}")  # Menggunakan nama bulan
-            ax.set_xlabel("Bulan")
-            ax.set_ylabel(feature2)
-            ax.set_title("Grafik dari Setiap Klaster dengan Rata-rata Bulanan")
-            ax.legend()
-            plt.xticks(rotation=32)
-            st.pyplot(fig)
+            plot_monthly_trends(data, feature2)
 
             # Membuat subplot grafik tren dari semua kota
             st.write("Grafik Tren dari Semua Kota:")
