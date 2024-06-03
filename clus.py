@@ -1,16 +1,14 @@
 import calendar
 
+import fcmeans
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
 import streamlit as st
-from fcmeans import FCM
-from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import silhouette_score
 
-st.set_option('deprecation.showPyplotGlobalUse', False)
 
-# Fungsi untuk mengubah nama kolom sesuai dengan deskripsi
 def rename_columns(columns):
     column_mapping = {
         "Tn": "Temperatur minimum (°C)",
@@ -31,125 +29,98 @@ def cluster_page():
     st.write("Anda dapat melakukan proses clustering dengan mengunggah file Excel yang berisikan dataset yang ingin dilakukan clustering.")
     main()  # Panggil fungsi main() untuk menjalankan analisis cluster
 
-# Fungsi untuk melakukan clustering menggunakan Fuzzy C-Means
-def fuzzy_cmeans_clustering(data, n_clusters):
-    # Memilih kolom dengan tipe data numerik
-    numeric_columns = data.select_dtypes(include=[np.number]).columns.tolist()
-    data_numeric = data[numeric_columns]
-
+@st.cache_data
+def fuzzy_c_means_clustering_by_city(data, feature_columns, n_clusters):
+    # Menghitung rata-rata fitur untuk setiap kota
+    city_averages = data.groupby('Kota')[feature_columns].mean()
+    
     # Normalisasi data
-    scaler = StandardScaler()
-    data_normalized = scaler.fit_transform(data_numeric)
+    city_averages_normalized = (city_averages - city_averages.min()) / (city_averages.max() - city_averages.min())
     
-    # Melakukan clustering dengan Fuzzy C-Means
-    fcm = FCM(n_clusters=n_clusters)
-    fcm.fit(data_normalized)
+    # Konversi ke numpy array
+    city_averages_array = city_averages_normalized.to_numpy(dtype=np.float64)
     
-    # Mendapatkan label klaster untuk setiap data
-    clusters = fcm.predict(data_normalized)
+    # Fuzzy C-Means
+    fcm = fcmeans.FCM(n_clusters=n_clusters, m=2, max_iter=1000, error=0.005)
+    fcm.fit(city_averages_array)
     
-    # Menambahkan label klaster ke data
-    data['Cluster'] = clusters
+    # Mendapatkan label cluster untuk setiap kota
+    city_cluster_labels = fcm.u.argmax(axis=1)
     
-    # Memastikan bahwa kota-kota tertentu memiliki label klaster sesuai keinginan
-    specific_cities = {
-        "Majene": 0,
-        "Maros": 0,
-        "Tana Toraja": 0,
-        "Luwu Utara": 1,
-        "Makassar": 0,
-        "Banggai": 1,
-        "Toli Toli": 0,
-        "Palu": 1,
-        "Kolaka": 0,
-        "Kendari": 0,
-        "Bau Bau": 0,
-        "Minahasa Utara": 1,
-        "Manado": 1,
-        "Bitung": 0,
-        "Gorontalo": 1
-    }
+    # Membuat kamus untuk menyimpan label cluster setiap kota
+    city_to_cluster = dict(zip(city_averages.index, city_cluster_labels))
     
-    # Mengelompokkan kota-kota yang sama ke dalam klaster yang sama
-    for city, cluster_label in specific_cities.items():
-        if city in data['Kota'].values:
-            data.loc[data['Kota'] == city, 'Cluster'] = cluster_label
-            
-    # Menyimpan mapping klaster untuk setiap kota
-    city_cluster_mapping = data.groupby('Kota')['Cluster'].first().to_dict()
+    # Menetapkan label cluster untuk setiap data berdasarkan kotanya
+    data['Cluster'] = data['Kota'].map(city_to_cluster)
     
-    # Mengaplikasikan mapping klaster ke seluruh data
-    data['Cluster'] = data['Kota'].map(city_cluster_mapping)
+    # Menghitung silhouette coefficient
+    silhouette_avg = silhouette_score(city_averages_normalized, city_cluster_labels)
     
-    return data
+    return data, silhouette_avg, city_to_cluster
 
-# Fungsi untuk menampilkan tabel kota dan label klaster
-def show_city_clusters_table(data):
-    city_clusters = data[['Kota', 'Cluster']].drop_duplicates().sort_values('Kota').reset_index(drop=True)
-    st.write("Tabel Kota dan Label Cluster:")
-    st.dataframe(city_clusters)
+# Fungsi untuk memvisualisasikan tren rata-rata tahunan dan bulanan
+def plot_trends(data, feature):
+    data['Year'] = data['Waktu'].dt.year
+    data['Month'] = data['Waktu'].dt.month
+    
+    # Tren tahunan
+    yearly_trend = data.groupby(['Year', 'Cluster'])[feature].mean().reset_index()
+    
+    plt.figure(figsize=(12, 6))
+    for cluster in yearly_trend['Cluster'].unique():
+        subset = yearly_trend[yearly_trend['Cluster'] == cluster]
+        plt.plot(subset['Year'], subset[feature], label=f'Cluster {cluster}')
+    plt.title('Tren Rata-rata Tahunan')
+    plt.xlabel('Tahun')
+    plt.ylabel(f'{feature}')
+    plt.xticks(ticks=yearly_trend['Year'].unique())  # Display each year individually
+    plt.legend()
+    st.pyplot(plt)
+    
+    # Tren bulanan
+    monthly_trend = data.groupby(['Month', 'Cluster'])[feature].mean().reset_index()
+    
+    plt.figure(figsize=(12, 6))
+    for cluster in monthly_trend['Cluster'].unique():
+        subset = monthly_trend[monthly_trend['Cluster'] == cluster]
+        plt.plot(subset['Month'], subset[feature], label=f'Cluster {cluster}')
+    plt.title('Tren Rata-rata Bulanan')
+    plt.xlabel('Bulan')
+    plt.ylabel(f'{feature}')
+    plt.xticks(ticks=range(1, 13), labels=[calendar.month_name[i] for i in range(1, 13)])
+    plt.legend()
+    st.pyplot(plt)
 
-# Fungsi untuk memvisualisasikan hasil clustering
-def plot_clusters(data, feature1, feature2):
-    plt.figure(figsize=(10, 6))
-    sns.scatterplot(data=data, x=feature1, y=feature2, hue='Cluster', palette='deep', legend='full')
-    plt.title('Hasil Clustering dengan Fuzzy C-Means')
-    plt.xlabel(feature1)
-    plt.ylabel(feature2)
-    plt.legend(title='Cluster')
-    st.pyplot()
-
-# Fungsi untuk menampilkan grafik tren subplot dari semua kota
 def plot_city_trends(data, feature):
-    cities = data['Kota'].unique()
-    n_cities = len(cities)
-    ncols = 3
-    nrows = int(np.ceil(n_cities / ncols))
-    
-    fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=(20, 5 * nrows), sharex=True)
-    axes = axes.flatten()
-    
-    for i, city in enumerate(cities):
-        city_data = data[data['Kota'] == city]
-        city_data = city_data.set_index('Waktu')
-        monthly_means = city_data[feature].resample('M').mean()
-        axes[i].plot(monthly_means.index, monthly_means.values, label=city)
-        axes[i].set_title(city)
-        axes[i].set_xlabel('Waktu')
-        axes[i].set_ylabel(feature)
-    
-    for i in range(n_cities, nrows * ncols):
-        fig.delaxes(axes[i])
-    
+    plt.figure(figsize=(14, 10))
+    clusters = data['Cluster'].unique()
+    num_clusters = len(clusters)
+    for i, cluster in enumerate(clusters, start=1):
+        plt.subplot(num_clusters, 1, i)
+        cluster_data = data[data['Cluster'] == cluster]
+        for city in cluster_data['Kota'].unique():
+            city_data = cluster_data[cluster_data['Kota'] == city]
+            plt.plot(city_data['Waktu'], city_data[feature], label=city)
+        plt.title(f'Tren {feature} untuk Cluster {cluster}')
+        plt.xlabel('Waktu')
+        plt.ylabel(feature)
+        plt.legend()
     plt.tight_layout()
-    st.pyplot(fig)
+    st.pyplot(plt)
 
-def plot_monthly_trends(data, feature2):
-    st.write("Grafik Tren Bulanan:")
-    fig, ax = plt.subplots()
-
-    # Define all month names
-    months = list(calendar.month_name[1:])  # ['January', 'February', ..., 'December']
-
-    for cluster in data["Cluster"].unique():
-        cluster_data = data[data["Cluster"] == cluster]
-        # Calculate monthly means ensuring all months are included
-        monthly_means = cluster_data.groupby('Month')[feature2].mean().reindex(range(1, 13), fill_value=0).values
-        if len(monthly_means) == 12:  # Ensuring it has values for all 12 months
-            ax.plot(months, monthly_means, label=f"Cluster {cluster}")
-
-    ax.set_xlabel("Bulan")
-    ax.set_ylabel(feature2)
-    ax.set_title("Grafik dari Setiap Klaster dengan Rata-rata Bulanan")
-    ax.legend()
-    plt.xticks(rotation=32)
-    st.pyplot(fig)
+def update_cluster_labels(data, city_to_cluster):
+    updated_city_to_cluster = {}
+    st.subheader("Perbarui Label Cluster")
+    for city, cluster in city_to_cluster.items():
+        new_cluster = st.selectbox(f"Pilih cluster baru untuk {city}", options=list(range(max(city_to_cluster.values())+1)), index=int(cluster), key=city)
+        updated_city_to_cluster[city] = new_cluster
+    data['Cluster'] = data['Kota'].map(updated_city_to_cluster)
+    return data, updated_city_to_cluster
 
 def main():
-    st.title('Clustering Data Meteorologi dengan Fuzzy C-Means')
-
-    # Unggah file Excel
-    uploaded_file = st.file_uploader("Unggah file Excel", type=["xls", "xlsx"])
+    st.title("Clustering dengan Fuzzy C-Means")
+    
+    uploaded_file = st.file_uploader("Unggah file Excel Anda", type=["xlsx"])
 
     with open("Template.xlsx", "rb") as file:
         st.download_button(
@@ -157,105 +128,60 @@ def main():
             data=file,
             file_name="Template.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-
+        )    
+    
     if uploaded_file is not None:
-        # Membaca data dari file Excel
         data = pd.read_excel(uploaded_file)
-
-        st.write("Data Asli:")
-        st.write(data)
-
-        # Mengubah nama kolom sesuai dengan deskripsi
+        data['Waktu'] = pd.to_datetime(data['Waktu'])
+        
+        # Rename columns
         data.columns = rename_columns(data.columns)
+        
+        st.write("Data yang diunggah:")
+        st.write(data)
+        
+        featureselect = st.multiselect("Pilih fitur untuk clustering", data.columns.difference(['Waktu', 'Kota']))
+        
+        n_clusters = st.slider("Pilih jumlah cluster", 2, 10, 3)
+        
+        if st.button("Lakukan Clustering"):
+            feature_columns = featureselect
+            clustered_data, silhouette_avg, city_to_cluster = fuzzy_c_means_clustering_by_city(data, feature_columns, n_clusters)
+            
+            city_cluster_df = pd.DataFrame(list(city_to_cluster.items()), columns=['Kota', 'Cluster'])
 
-        # Memilih dua fitur untuk dibandingkan
-        selected_features = st.multiselect("Pilih fitur untuk dibandingkan", data.columns)
+            st.session_state['clustered_data'] = clustered_data
+            st.session_state['silhouette_avg'] = silhouette_avg
+            st.session_state['city_cluster_df'] = city_cluster_df
+            st.session_state['city_to_cluster'] = city_to_cluster
 
-        if len(selected_features) == 1:
-            feature1 = "Waktu"
-            feature2 = selected_features[0]
+            # Allow users to update cluster labels
+            #updated_clustered_data, updated_city_to_cluster = update_cluster_labels(clustered_data, city_to_cluster)
 
-            data['Year'] = data[feature1].dt.year
-            data['Month'] = data[feature1].dt.month
+            #st.session_state['clustered_data'] = updated_clustered_data
+            #st.session_state['city_cluster_df'] = pd.DataFrame(list(updated_city_to_cluster.items()), columns=['Kota', 'Cluster'])
 
-            # Melakukan clustering
-            n_clusters = st.slider("Jumlah Klaster", min_value=2, max_value=10, value=2)
-            clustered_data = fuzzy_cmeans_clustering(data, n_clusters)
+    if 'clustered_data' in st.session_state:
+        clustered_data = st.session_state['clustered_data']
+        silhouette_avg = st.session_state['silhouette_avg']
+        city_cluster_df = st.session_state['city_cluster_df']
+        city_to_cluster = st.session_state['city_to_cluster']
+        
+        st.write("Data Pasca Cluster:")
+        st.write(clustered_data[['Kota', 'Waktu', 'Cluster'] + feature_columns])
+        
+        st.write(f"Silhouette Coefficient: {silhouette_avg:.4f}")
+        
+        st.subheader("Tabel Kota dan Label Cluster")
+        st.write(city_cluster_df)
+        
+        trend_feature = st.selectbox("Pilih fitur untuk ditampilkan di grafik tren", feature_columns)
+        st.subheader("Visualisasi Tren")
+        plot_trends(clustered_data, trend_feature)
 
-            st.write("Data setelah Clustering:")
-            st.write(clustered_data)
-
-            # Menampilkan tabel kota dan label klaster
-            show_city_clusters_table(clustered_data)
-
-            # Visualisasi hasil clustering
-            plot_clusters(clustered_data, feature1, feature2)
-
-            # Membuat grafik time-series dari setiap kluster dengan rata-rata tahunan
-            st.write("Grafik Tren Tahunan:")
-            fig, ax = plt.subplots()
-            for cluster in data["Cluster"].unique():
-                cluster_data = data[data["Cluster"] == cluster]
-                # Menggunakan rata-rata tahunan untuk setiap kluster
-                ax.plot(cluster_data.groupby('Year')[feature2].mean().index, 
-                        cluster_data.groupby('Year')[feature2].mean(), 
-                        label=f"Cluster {cluster}")
-
-            ax.set_xlabel("Tahun")
-            ax.set_ylabel(feature2)
-            ax.set_title("Grafik dari Setiap Klaster dengan Rata-rata Tahunan")
-            ax.legend()
-            st.pyplot(fig)
-
-            # Membuat grafik time-series dari setiap kluster dengan rata-rata bulanan
-            plot_monthly_trends(data, feature2)
-
-            # Membuat subplot grafik tren dari semua kota
-            st.write("Grafik Tren dari Semua Kota:")
-            plot_city_trends(clustered_data, feature2)
-
-            # Analisis kondisional hasil cluster
-            analyses = []
-            columns = {
-                "Temperatur minimum (°C)": "temperatur minimum",
-                "Temperatur maksimum (°C)": "temperatur maksimum",
-                "Temperatur rata-rata (°C)": "temperatur rata-rata",
-                "Kelembapan rata-rata (%)": "kelembapan rata-rata",
-                "Curah hujan (mm)": "curah hujan",
-                "Lama penyinaran matahari (jam)": "lama penyinaran matahari",
-                "Kecepatan angin maksimum (m/s)": "kecepatan angin maksimum",
-                "Arah angin saat kecepatan maksimum (°)": "arah angin saat kecepatan maksimum",
-                "Kecepatan angin rata-rata (m/s)": "kecepatan angin rata-rata",
-                "Arah angin terbanyak (°)": "arah angin terbanyak"
-            }
-
-            #for col, desc in columns.items():
-            #    if col in selected_features:
-            #        cluster_means = clustered_data.groupby('Cluster')[col].mean()
-            #        max_cluster = cluster_means.idxmax()
-            #        analyses.append(f"Cluster {max_cluster} memiliki {desc} yang paling tinggi dibandingkan cluster lainnya.\n")
-
-            for col, desc in columns.items():
-                if col in selected_features:
-                    avg_cluster_0 = clustered_data[clustered_data["Cluster"] == 0][col].mean()
-                    avg_cluster_1 = clustered_data[clustered_data["Cluster"] == 1][col].mean()
-                    
-                    if avg_cluster_0 > avg_cluster_1:
-                        analyses.append(f"Cluster 0 memiliki {desc} yang lebih tinggi dibandingkan Cluster 1.\n")
-                    else:
-                        analyses.append(f"Cluster 1 memiliki {desc} yang lebih tinggi dibandingkan Cluster 0.\n")
-
-            # Menampilkan narasi penjelasan analisis hasil cluster
-            st.write("### Hasil Analisis Cluster")
-            explanation = (
-                f"Dari grafik yang telah dibuat, kita dapat menganalisis beberapa hal penting:\n\n"
-                f"{' '.join(analyses)}"
-            )
-            st.markdown(
-                f'<textarea style="background-color: #f4f4f4; color: black;" rows="10" cols="80" readonly>{explanation}</textarea>',
-                unsafe_allow_html=True
-            )
+        # Visualisasi tren per kota di setiap cluster
+        st.subheader("Visualisasi Tren per Kota")
+        plot_city_trends(clustered_data, trend_feature)
 
 if __name__ == "__main__":
     cluster_page()
