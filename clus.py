@@ -30,7 +30,7 @@ def cluster_page():
     main()  # Panggil fungsi main() untuk menjalankan analisis cluster
 
 @st.cache_data
-def fuzzy_c_means_clustering_by_city(data, feature_columns, n_clusters, initial_city_to_cluster=None):
+def fuzzy_c_means_clustering_by_city(data, feature_columns, n_clusters):
     # Menghitung rata-rata fitur untuk setiap kota
     city_averages = data.groupby('Kota')[feature_columns].mean()
     
@@ -46,10 +46,6 @@ def fuzzy_c_means_clustering_by_city(data, feature_columns, n_clusters, initial_
     
     # Mendapatkan label cluster untuk setiap kota
     city_cluster_labels = fcm.u.argmax(axis=1)
-    
-    if initial_city_to_cluster:
-        for city, cluster in initial_city_to_cluster.items():
-            city_cluster_labels[city_averages.index.get_loc(city)] = cluster
     
     # Membuat kamus untuk menyimpan label cluster setiap kota
     city_to_cluster = dict(zip(city_averages.index, city_cluster_labels))
@@ -98,7 +94,7 @@ def plot_trends(data, feature):
     for cluster in yearly_trend['Cluster'].unique():
         subset = yearly_trend[yearly_trend['Cluster'] == cluster]
         plt.plot(subset['Year'], subset[feature], label=f'Cluster {cluster}')
-    plt.title('Tren Rata-rata Tahunan')
+    plt.title(f'Tren Rata-rata Tahunan {feature}')
     plt.xlabel('Tahun')
     plt.ylabel(f'{feature}')
     plt.xticks(ticks=yearly_trend['Year'].unique())  # Display each year individually
@@ -112,7 +108,7 @@ def plot_trends(data, feature):
     for cluster in monthly_trend['Cluster'].unique():
         subset = monthly_trend[monthly_trend['Cluster'] == cluster]
         plt.plot(subset['Month'], subset[feature], label=f'Cluster {cluster}')
-    plt.title('Tren Rata-rata Bulanan')
+    plt.title(f'Tren Rata-rata Bulanan {feature}')
     plt.xlabel('Bulan')
     plt.ylabel(f'{feature}')
     plt.xticks(ticks=range(1, 13), labels=[calendar.month_name[i] for i in range(1, 13)])
@@ -166,17 +162,8 @@ def main():
         
         n_clusters = st.slider("Pilih jumlah cluster", 2, 10, 3)
         
-        use_initial_labels = st.checkbox("Gunakan penetapan label cluster awal untuk kota")
-        initial_city_to_cluster = {}
-        
-        if use_initial_labels:
-            st.subheader("Tetapkan Label Cluster Awal untuk Kota")
-            for city in data['Kota'].unique():
-                initial_cluster = st.selectbox(f"Pilih cluster awal untuk {city}", options=list(range(n_clusters)), key=f"initial_{city}")
-                initial_city_to_cluster[city] = initial_cluster
-        
         if st.button("Lakukan Clustering"):
-            clustered_data, silhouette_avg, city_to_cluster = fuzzy_c_means_clustering_by_city(data, feature_columns, n_clusters, initial_city_to_cluster if use_initial_labels else None)
+            clustered_data, silhouette_avg, city_to_cluster = fuzzy_c_means_clustering_by_city(data, feature_columns, n_clusters)
             
             city_cluster_df = pd.DataFrame(list(city_to_cluster.items()), columns=['Kota', 'Cluster'])
 
